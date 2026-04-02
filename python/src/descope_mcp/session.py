@@ -6,6 +6,12 @@ and extracting user information from validated tokens.
 
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
+from urllib.parse import urlparse
+
+try:
+    import httpx
+except ImportError:  # pragma: no cover
+    httpx = None  # type: ignore
 
 if TYPE_CHECKING:  # pragma: no cover
     from descope import DescopeClient
@@ -432,3 +438,130 @@ def validate_token_require_scopes_and_get_user_id(
         raise ValueError("User ID not found in token validation result")
 
     return user_id
+
+
+_DEFAULT_API_ORIGIN = "https://api.descope.com"
+
+
+def _extract_project_id_from_well_known(well_known_url: str) -> Optional[str]:
+    """First path segment of OpenID well-known URL is the Descope project ID.
+
+    Example: ``https://api.descope.com/P2v9E.../.well-known/openid-configuration``
+    → ``P2v9E...``
+    """
+    try:
+        parsed = urlparse(well_known_url)
+        path_parts = [p for p in parsed.path.split("/") if p]
+        if path_parts:
+            return path_parts[0]
+    except Exception:
+        return None
+    return None
+
+
+def _userinfo_url_from_well_known(
+    well_known_url: str, project_id: Optional[str] = None
+) -> str:
+    """Build UserInfo URL: ``{origin}/v1/apps/{project_id}/userinfo``."""
+    parsed = urlparse(well_known_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid well_known_url: {well_known_url!r}")
+    pid = project_id or _extract_project_id_from_well_known(well_known_url)
+    if not pid:
+        raise ValueError(
+            "Could not determine Descope project ID from well_known_url; "
+            "pass project_id=... explicitly."
+        )
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    return f"{origin}/v1/apps/{pid}/userinfo"
+
+
+def _resolve_userinfo_url(
+    well_known_url: Optional[str],
+    userinfo_url: Optional[str],
+    project_id: Optional[str],
+) -> str:
+    if userinfo_url:
+        return userinfo_url
+    wku = well_known_url
+    if wku is None:
+        config = _get_context().get_config()
+        if config is not None:
+            wku = config.well_known_url
+    if wku:
+        return _userinfo_url_from_well_known(wku, project_id)
+    if project_id:
+        return f"{_DEFAULT_API_ORIGIN}/v1/apps/{project_id}/userinfo"
+    raise ValueError(
+        "fetch_userinfo requires one of: userinfo_url, well_known_url (or global "
+        "DescopeMCP config with well_known_url), or project_id (uses "
+        f"{_DEFAULT_API_ORIGIN} as API host)."
+    )
+
+
+def fetch_userinfo(
+    access_token: str,
+    *,
+    well_known_url: Optional[str] = None,
+    project_id: Optional[str] = None,
+    userinfo_url: Optional[str] = None,
+    timeout: float = 30.0,
+) -> Dict[str, Any]:
+    """Call Descope's UserInfo API with a Bearer access token.
+
+    The endpoint is ``{api_origin}/v1/apps/{project_id}/userinfo``, for example
+    ``https://api.descope.com/v1/apps/P2v9E.../userinfo``. The API host and
+    project ID are taken from your OpenID well-known URL when provided.
+
+    Descope returns profile claims plus tenant ``roles`` and ``permissions``
+    when the token was issued with the appropriate scopes.
+
+    Use this to validate or enrich authorization decisions with live roles,
+    permissions, and user attributes, similar in spirit to token introspection.
+
+    Args:
+        access_token: OAuth 2.0 access token (``Authorization: Bearer``).
+        well_known_url: OpenID well-known URL; used to derive API host and project ID
+            (first path segment). If omitted, uses global :class:`~descope_mcp.DescopeMCP`
+            config when set.
+        project_id: Optional Descope project ID; overrides the ID parsed from
+            ``well_known_url``. If you omit ``well_known_url`` and global config,
+            pass this to use ``https://api.descope.com`` as the API host.
+        userinfo_url: Optional full UserInfo URL (overrides host and project_id).
+        timeout: HTTP timeout in seconds.
+
+    Returns:
+        Parsed JSON object from the UserInfo response.
+
+    Raises:
+        ImportError: If ``httpx`` is not installed.
+        ValueError: If the UserInfo URL cannot be resolved or ``well_known_url`` is invalid.
+        httpx.HTTPStatusError: If the UserInfo request returns a non-success status.
+
+    Example:
+        ```python
+        from descope_mcp import DescopeMCP, fetch_userinfo
+
+        DescopeMCP(well_known_url="https://api.descope.com/Pxxx/.well-known/openid-configuration")
+
+        info = fetch_userinfo(access_token)
+        tenants = info.get("tenants", {})
+        ```
+    """
+    if not httpx:
+        raise ImportError(
+            "httpx is required for fetch_userinfo. Install with: pip install httpx"
+        )
+
+    url = _resolve_userinfo_url(well_known_url, userinfo_url, project_id)
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+    }
+
+    response = httpx.get(url, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("UserInfo response must be a JSON object")
+    return data

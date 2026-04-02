@@ -10,6 +10,7 @@ from descope_mcp import (
     DescopeMCP,
     fetch_tenant_token,
     fetch_tenant_token_by_scopes,
+    fetch_userinfo,
     get_connection_token,
     validate_token_and_get_user_id,
 )
@@ -223,3 +224,88 @@ class TestDirectFunctions:
                 user_id="user-123", app_id="google-calendar"
             )
             assert token == "connection-token-123"
+
+    def test_fetch_userinfo_requires_resolution(self):
+        mock_context = MagicMock()
+        mock_context.get_config.return_value = None
+        with patch("descope_mcp.session._get_context", return_value=mock_context):
+            with pytest.raises(ValueError, match="fetch_userinfo requires"):
+                fetch_userinfo("t")
+
+    def test_fetch_userinfo_derives_url_from_well_known(self):
+        """UserInfo URL should match the OpenID well-known host."""
+        mock_httpx = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"sub": "user-1", "email": "a@example.com"}
+        mock_resp.raise_for_status.return_value = None
+        mock_httpx.get.return_value = mock_resp
+
+        with patch("descope_mcp.session.httpx", mock_httpx):
+            info = fetch_userinfo(
+                "access-token-xyz",
+                well_known_url="https://api.eu.descope.com/P1/.well-known/openid-configuration",
+            )
+
+        assert info["sub"] == "user-1"
+        args, kwargs = mock_httpx.get.call_args
+        assert args[0] == "https://api.eu.descope.com/v1/apps/P1/userinfo"
+        assert kwargs["headers"]["Authorization"] == "Bearer access-token-xyz"
+
+    def test_fetch_userinfo_explicit_url_overrides_well_known(self):
+        mock_httpx = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"sub": "u2"}
+        mock_resp.raise_for_status.return_value = None
+        mock_httpx.get.return_value = mock_resp
+
+        with patch("descope_mcp.session.httpx", mock_httpx):
+            fetch_userinfo(
+                "t",
+                well_known_url="https://api.descope.com/x/.well-known/openid-configuration",
+                userinfo_url="https://custom.example.com/oauth2/v1/userinfo",
+            )
+
+        args, _ = mock_httpx.get.call_args
+        assert args[0] == "https://custom.example.com/oauth2/v1/userinfo"
+
+    def test_fetch_userinfo_default_origin_without_global_config(self):
+        mock_httpx = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"sub": "u3"}
+        mock_resp.raise_for_status.return_value = None
+        mock_httpx.get.return_value = mock_resp
+
+        mock_context = MagicMock()
+        mock_context.get_config.return_value = None
+
+        with patch("descope_mcp.session.httpx", mock_httpx):
+            with patch("descope_mcp.session._get_context", return_value=mock_context):
+                fetch_userinfo("t", project_id="P2v9EBlmO4XTrOwMRfsY1jeUONxU")
+
+        args, _ = mock_httpx.get.call_args
+        assert (
+            args[0]
+            == "https://api.descope.com/v1/apps/P2v9EBlmO4XTrOwMRfsY1jeUONxU/userinfo"
+        )
+
+    def test_descope_mcp_fetch_userinfo(self, mock_descope_client):
+        mock_httpx = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"sub": "from-mcp"}
+        mock_resp.raise_for_status.return_value = None
+        mock_httpx.get.return_value = mock_resp
+
+        with patch(
+            "descope_mcp.descope_mcp._get_descope_client",
+            return_value=mock_descope_client,
+        ):
+            with patch("descope_mcp.session.httpx", mock_httpx):
+                client = DescopeMCP(
+                    well_known_url="https://api.descope.com/test/.well-known/openid-configuration",
+                    management_key="test-key",
+                )
+                info = client.fetch_userinfo("my-access-token")
+
+        assert info["sub"] == "from-mcp"
+        args, _ = mock_httpx.get.call_args
+        assert args[0] == "https://api.descope.com/v1/apps/test/userinfo"
