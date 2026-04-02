@@ -41,6 +41,7 @@ from .connections import get_connection_token as _get_connection_token
 from .session import (
     TokenValidationResult,
 )
+from .session import fetch_userinfo as _fetch_userinfo
 from .session import require_scopes as _require_scopes
 from .session import validate_token as _validate_token
 from .session import validate_token_and_get_user_id as _validate_token_and_get_user_id
@@ -362,6 +363,28 @@ class DescopeMCP:
             options=options,
             access_token=access_token,
             descope_client=self._client if not access_token else None,
+        )
+
+    def fetch_userinfo(
+        self,
+        access_token: str,
+        *,
+        project_id: Optional[str] = None,
+        userinfo_url: Optional[str] = None,
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """Call Descope ``/v1/apps/{project_id}/userinfo`` with the given access token.
+
+        Uses this instance's ``well_known_url`` for API host and project ID unless
+        ``userinfo_url`` or ``project_id`` overrides apply. See
+        :func:`~descope_mcp.session.fetch_userinfo`.
+        """
+        return _fetch_userinfo(
+            access_token,
+            well_known_url=self.config.well_known_url,
+            project_id=project_id,
+            userinfo_url=userinfo_url,
+            timeout=timeout,
         )
 
     def create_auth_check(
