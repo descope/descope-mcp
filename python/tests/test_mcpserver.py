@@ -16,7 +16,7 @@ class TestMCPServerIntegration:
         """Create a mock DescopeClient."""
         client = Mock()
         client.validate_session = Mock(
-            return_value={"sub": "user-123", "scopes": ["read", "write"]}
+            return_value={"sub": "user-123", "scope": "read write"}
         )
         client.mgmt = Mock()
         client.mgmt.outbound_application = Mock()

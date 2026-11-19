@@ -100,8 +100,8 @@ def create_mcp_server():
                 mcp_access_token, required_scopes=["read"]
             )
             return f"Data read successfully for user {user_id}"
-        except InsufficientScopeError as e:
-            return e.to_json()
+        except InsufficientScopeError:
+            raise
         except Exception as e:
             return json.dumps({"error": f"Authorization failed: {str(e)}"})
 
@@ -185,8 +185,8 @@ def create_mcp_server():
                     indent=2,
                 )
 
-        except InsufficientScopeError as e:
-            return e.to_json()
+        except InsufficientScopeError:
+            raise
         except httpx.HTTPStatusError as e:
             return json.dumps(
                 {
@@ -203,16 +203,10 @@ def create_mcp_server():
 
         Requires 'calendar.read' scope in the MCP access token.
         """
-        try:
-            # Validate token, require scopes, and get user ID in one call
-            user_id = validate_token_require_scopes_and_get_user_id(
-                mcp_access_token, required_scopes=["calendar.read"]
-            )
-            return json.dumps(
-                {"message": "Calendar list retrieved", "user_id": user_id}
-            )
-        except InsufficientScopeError as e:
-            return e.to_json()
+        user_id = validate_token_require_scopes_and_get_user_id(
+            mcp_access_token, required_scopes=["calendar.read"]
+        )
+        return json.dumps({"message": "Calendar list retrieved", "user_id": user_id})
 
     return mcp
 

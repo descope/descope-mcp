@@ -4,7 +4,7 @@ This example demonstrates how to use tenant tokens with the MCP Descope SDK. Ten
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Descope project with:
   - Outbound application configured for tenant access (e.g., Slack workspace)
   - Management key configured

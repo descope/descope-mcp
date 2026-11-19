@@ -25,7 +25,7 @@ def mock_descope_client():
     client.validate_session = Mock(
         return_value={
             "sub": "user-123",
-            "scopes": ["read", "write", "calendar.read"],
+            "scope": "read write calendar.read",
             "aud": "https://test-mcp-server.com",
         }
     )

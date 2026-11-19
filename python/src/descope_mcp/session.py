@@ -99,7 +99,7 @@ class TokenValidationResult(TypedDict, total=False):
     tenantId: str  # Alternative tenant ID field
 
     # Token scopes and permissions
-    scopes: List[str]  # List of OAuth scopes granted to the token
+    scope: str  # Space-separated OAuth scopes granted to the token
 
     # JWT standard claims
     aud: str  # Audience claim (MCP server URL)
@@ -145,7 +145,7 @@ def validate_token(
         Common fields include:
         - ``sub`` (str): User ID (JWT standard subject claim)
         - ``userId`` (str): Alternative user ID field
-        - ``scopes`` (List[str]): List of OAuth scopes granted to the token
+        - ``scope`` (str): Space-separated OAuth scopes granted to the token
         - ``tenant`` (str): Tenant ID (if available)
         - ``tenantId`` (str): Alternative tenant ID field
         - ``aud`` (str): Audience claim (MCP server URL)
@@ -173,7 +173,7 @@ def validate_token(
         result = validate_token(access_token)
         user_id = result.get('sub') or result.get('userId')
         tenant_id = result.get('tenant') or result.get('tenantId')
-        scopes = result.get('scopes', [])
+        scopes = result.get('scope', '').split()
 
         # Check if user has required scope
         if 'calendar.read' in scopes:
@@ -325,29 +325,16 @@ def require_scopes(
             return "Success"
         ```
 
-    Example with error handling:
-        ```python
-        from descope_mcp import validate_token, require_scopes, InsufficientScopeError
-        import json
-
-        @mcp.tool()
-        def my_tool(mcp_access_token: str) -> str:
-            try:
-                token_result = validate_token(mcp_access_token)
-                require_scopes(token_result, ["calendar.read"])
-                # Tool logic here
-                return "Success"
-            except InsufficientScopeError as e:
-                # Return error in MCP spec format
-                return e.to_json()
-        ```
+        Let InsufficientScopeError propagate: the MCP server then returns the
+        call as a tool error (``isError: true``). Returning ``e.to_json()``
+        from the tool reports the denial as a successful result.
     """
     if not required_scopes:
         # No scopes required, always pass
         return
 
-    # Get scopes from token result
-    token_scopes = token_result.get("scopes", [])
+    # Descope access tokens carry OAuth scopes as a space-separated "scope" claim (RFC 9068)
+    token_scopes = token_result.get("scope", "").split()
 
     # Check if all required scopes are present
     required_set = set(required_scopes)
@@ -393,21 +380,16 @@ def validate_token_require_scopes_and_get_user_id(
 
     Example:
         ```python
-        from descope_mcp import validate_token_require_scopes_and_get_user_id, InsufficientScopeError
+        from descope_mcp import validate_token_require_scopes_and_get_user_id
 
         @mcp.tool()
         def my_tool(mcp_access_token: str) -> str:
-            try:
-                # Validate token, require scopes, and get user ID in one call
-                user_id = validate_token_require_scopes_and_get_user_id(
-                    mcp_access_token,
-                    required_scopes=["calendar.read"]
-                )
-
-                # Use user_id for further operations
-                return f"User {user_id} has calendar.read access"
-            except InsufficientScopeError as e:
-                return e.to_json()
+            # Raises InsufficientScopeError -> returned to the client as a tool error
+            user_id = validate_token_require_scopes_and_get_user_id(
+                mcp_access_token,
+                required_scopes=["calendar.read"]
+            )
+            return f"User {user_id} has calendar.read access"
         ```
     """
     # Validate token

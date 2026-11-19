@@ -10,7 +10,7 @@ This module provides the main DescopeMCP client class and SDK functionality incl
 
 import logging
 import platform
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import urlparse
 
 try:
@@ -28,12 +28,7 @@ except ImportError:  # pragma: no cover
         from pkg_resources import get_distribution as _get_version  # type: ignore[no-redef]
         # isort: on
 
-# Import DescopeClient lazily for runtime compatibility in restricted environments.
-# (Some environments may block requests/SSL initialization at import time.)
-if TYPE_CHECKING:  # pragma: no cover
-    from descope import DescopeClient
-else:  # pragma: no cover
-    DescopeClient = Any  # type: ignore
+from descope import DescopeClient
 from mcp.server import FastMCP
 
 from . import __version__
@@ -171,8 +166,8 @@ _context = _DescopeContext()
 class DescopeMCP:
     """Descope MCP SDK client, similar to DescopeClient in the Descope Python SDK.
 
-    This class provides a class-based API for the Descope MCP SDK, allowing you to
-    instantiate a client and use it explicitly rather than relying on global state.
+    This class provides a class-based API for the Descope MCP SDK. Creating an
+    instance also makes it the default for the standalone functions.
 
     Example:
         ```python
@@ -224,6 +219,9 @@ class DescopeMCP:
         )
         self.mcp_server_url = mcp_server_url
         self._client = _get_descope_client(self.config, self.mcp_server_url)
+        _context.config = self.config
+        _context.client = self._client
+        _context.mcp_server_url = mcp_server_url
 
     @property
     def descope_client(self) -> Optional[DescopeClient]:
@@ -376,7 +374,9 @@ class DescopeMCP:
             Auth check function that can be used with FastMCP decorators
         """
         return create_auth_check(
-            required_scopes=required_scopes, descope_client=self._client
+            required_scopes=required_scopes,
+            descope_client=self._client,
+            audience=self.mcp_server_url,
         )
 
 
@@ -448,10 +448,11 @@ def _get_descope_client(
         mcp_server_url: Optional MCP server URL (stored for audience validation)
 
     Returns:
-        DescopeClient instance or None if management_key not provided
+        DescopeClient instance, or None if no project ID is found in the well-known URL.
+        Token validation needs only the project ID; management_key is optional.
 
     Note:
-        The DescopeClient is initialized with project_id and management_key.
+        The DescopeClient is initialized with project_id and the optional management_key.
         The mcp_server_url is stored separately in the context and used as the
         audience claim when calling validate_session() to ensure tokens are
         only accepted if they were issued for this specific MCP server.
@@ -463,9 +464,6 @@ def _get_descope_client(
         - x-descope-project-id: <project-id>
         - Authorization: Bearer <project-id>:<management-key>
     """
-    if not config.management_key:
-        return None
-
     # Try to extract project_id from well_known_url
     project_id = _extract_project_id_from_url(config.well_known_url)
 
@@ -507,7 +505,7 @@ def get_descope_client(config: DescopeConfig) -> DescopeClient:
         ```
     """
     client = _get_descope_client(config)
-    if not client:
+    if not client or not config.management_key:
         raise ValueError(
             "Descope management_key is required. "
             "Provide it in DescopeConfig to use token validation and outbound app tokens."
@@ -518,6 +516,7 @@ def get_descope_client(config: DescopeConfig) -> DescopeClient:
 def create_auth_check(
     required_scopes: Optional[List[str]] = None,
     descope_client: Optional[DescopeClient] = None,
+    audience: Optional[str] = None,
 ) -> Callable:
     """Create an auth check function for FastMCP 3.0+ that validates Descope token and scopes.
 
@@ -530,6 +529,7 @@ def create_auth_check(
     Args:
         required_scopes: List of required scopes (empty list means auth only, no scope check)
         descope_client: Optional Descope client instance (uses global context if not provided)
+        audience: Optional audience claim to validate (uses MCP server URL from context if not provided)
 
     Returns:
         Auth check function that can be used with FastMCP decorators
@@ -576,9 +576,6 @@ def create_auth_check(
         token_str = token.token if hasattr(token, "token") else str(token)
 
         try:
-            # Get audience from context if available
-            audience = _context.get_mcp_server_url() if descope_client is None else None
-
             # Validate token and get user ID (uses closure's descope_client)
             # Audience validation ensures token is intended for this MCP server
             # Import here to avoid circular dependency
