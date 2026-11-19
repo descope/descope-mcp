@@ -96,6 +96,7 @@ jobs:
             python/.coverage.${{ matrix.os }}.${{ matrix.py }}
             python/coverage.xml
           if-no-files-found: error
+          include-hidden-files: true
 
   coverage:
     if: github.event_name != 'schedule'
@@ -105,8 +106,6 @@ jobs:
     permissions:
       pull-requests: write
       contents: write
-    env:
-      COVERAGE_FILE: "coverage"
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
@@ -115,21 +114,7 @@ jobs:
         with:
           pattern: coverage.*
           merge-multiple: true
-          path: coverage-artifacts
-
-      - name: Prepare coverage data files
-        run: |
-          # Move all .coverage.* files from coverage-artifacts to root
-          # They may be in coverage-artifacts/python/ or coverage-artifacts/ directly
-          find coverage-artifacts -type f -name ".coverage.*" -exec mv {} . \; || true
-          # Also check for files in python subdirectory
-          find coverage-artifacts/python -type f -name ".coverage.*" -exec mv {} . \; 2>/dev/null || true
-          # Remove any XML files from root that might confuse the action
-          rm -f coverage.xml 2>/dev/null || true
-          rm -rf coverage-artifacts 2>/dev/null || true
-          # List files to verify
-          ls -la .coverage.* 2>/dev/null || echo "No .coverage files found"
-          echo "Coverage data files prepared in workspace root"
+          path: python
 
       - name: Coverage comment
         id: coverage_comment
@@ -138,7 +123,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_COVERAGE_FILES: true
           ANNOTATE_MISSING_LINES: true
-          COVERAGE_PATH: "."
+          COVERAGE_PATH: python
 
       - name: Store Pull Request comment to be posted
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
