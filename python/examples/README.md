@@ -75,7 +75,7 @@ python <example_file>.py
 ## Prerequisites
 
 All examples require:
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Descope project configured
 - Environment variables set (see each example's README)
 

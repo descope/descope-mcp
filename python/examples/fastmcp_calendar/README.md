@@ -4,7 +4,7 @@ This example demonstrates how to protect MCP tools with Descope authentication a
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Descope project with an MCP Server configured (you’ll use its **`.well-known` URL** and **MCP Server URL**)
   - See: [Descope docs — MCP Server Settings](https://docs.descope.com/agentic-identity-hub/mcp-servers/settings)
 - Google Calendar API access (OAuth app configured in Descope)
