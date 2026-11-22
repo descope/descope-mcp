@@ -56,7 +56,7 @@ setup(
         "dev": [
             "pytest>=7.0.0",
             "pytest-asyncio>=0.21.0",
-            "black>=23.0.0",
+            "black>=26.10.1",
             "isort>=5.12.0",
             "mypy>=1.0.0",
         ],
