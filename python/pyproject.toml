@@ -12,7 +12,7 @@ packages = ["src/descope_mcp"]
 name = "descope-mcp"
 version = "0.1.0"
 description = "MCP SDK for Descope authentication"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "mcp>=1.0.0",  # Model Context Protocol SDK - compatible with versions 1.0.0+
+    "mcp>=1.0.0,<2",  # mcp 2.x removed mcp.server.FastMCP
     "descope>=1.0.0",
     "pydantic>=2.0.0",
     "typing-extensions>=4.0.0",
@@ -79,4 +79,7 @@ target-version = "py310"
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
-line-ending = "auto" 
+line-ending = "auto"
+
+[tool.coverage.run]
+relative_files = true

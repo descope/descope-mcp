@@ -23,7 +23,7 @@ class TestFastMCP2Integration:
         client.validate_session = Mock(
             return_value={
                 "sub": "user-123",
-                "scopes": ["read", "write", "calendar.read"],
+                "scope": "read write calendar.read",
             }
         )
         client.mgmt = Mock()

@@ -21,7 +21,7 @@ pip install descope-mcp
 
 ```python
 from mcp.server import FastMCP
-from descope_mcp import DescopeMCP, validate_token, require_scopes, get_connection_token, InsufficientScopeError
+from descope_mcp import DescopeMCP, validate_token, require_scopes, get_connection_token
 
 # Initialize SDK
 DescopeMCP(
@@ -34,25 +34,22 @@ mcp = FastMCP("my-server")
 @mcp.tool()
 async def get_calendar_events(mcp_access_token: str) -> str:
     """Get calendar events - requires 'calendar.read' scope."""
-    try:
-        # Validate token and check scopes
-        token_result = validate_token(mcp_access_token)
-        require_scopes(token_result, ["calendar.read"])
-        
-        # Get user ID and connection token
-        user_id = token_result.get("sub") or token_result.get("userId")
-        google_token = get_connection_token(
-            user_id=user_id,
-            app_id="google-calendar",
-            scopes=["https://www.googleapis.com/auth/calendar"],
-            access_token=mcp_access_token
-        )
-        
-        # Use token to call external API
-        return "Events retrieved"
-    except InsufficientScopeError as e:
-        # Return MCP spec-compliant error response
-        return e.to_json()
+    # Validate token and check scopes.
+    # InsufficientScopeError is returned to the client as a tool error.
+    token_result = validate_token(mcp_access_token)
+    require_scopes(token_result, ["calendar.read"])
+
+    # Get user ID and connection token
+    user_id = token_result.get("sub") or token_result.get("userId")
+    google_token = get_connection_token(
+        user_id=user_id,
+        app_id="google-calendar",
+        scopes=["https://www.googleapis.com/auth/calendar"],
+        access_token=mcp_access_token
+    )
+
+    # Use token to call external API
+    return "Events retrieved"
 ```
 
 ## Set up your Descope MCP Server (and get your `.well-known` URL)
@@ -74,7 +71,7 @@ from descope_mcp import validate_token, validate_token_and_get_user_id
 # Get full validation result
 result = validate_token(access_token)
 user_id = result.get("sub") or result.get("userId")
-scopes = result.get("scopes", [])
+scopes = result.get("scope", "").split()
 
 # Or get user ID directly
 user_id = validate_token_and_get_user_id(access_token)
@@ -87,18 +84,16 @@ The SDK provides scope validation that follows the MCP spec's [Runtime Insuffici
 ### Using require_scopes()
 
 ```python
-from descope_mcp import validate_token, require_scopes, InsufficientScopeError
+from descope_mcp import validate_token, require_scopes
 
 @mcp.tool()
 def my_tool(mcp_access_token: str) -> str:
-    try:
-        token_result = validate_token(mcp_access_token)
-        require_scopes(token_result, ["read", "write"])
-        return "Success"
-    except InsufficientScopeError as e:
-        # Returns MCP spec-compliant error response
-        return e.to_json()
+    token_result = validate_token(mcp_access_token)
+    require_scopes(token_result, ["read", "write"])
+    return "Success"
 ```
+
+`require_scopes()` reads the token's space-separated `scope` claim. Let `InsufficientScopeError` propagate out of the tool: the MCP server then returns the call as a tool error (`isError: true`). Don't catch it and `return e.to_json()`, because that reports the denial as a successful result.
 
 ### InsufficientScopeError
 
@@ -226,14 +221,13 @@ export DESCOPE_MANAGEMENT_KEY="your-management-key"  # Optional
 2. **Use access tokens by default** to enable policy enforcement
 3. **Validate tokens on every request** - don't cache validation results
 4. **Use `require_scopes()` for scope validation** - ensures MCP spec compliance
-5. **Handle `InsufficientScopeError` properly** - return error responses using `e.to_json()`
+5. **Let `InsufficientScopeError` propagate** - the MCP server returns it as a tool error
 
 ## Compatibility
 
-- **Python**: 3.8+
-- **MCP SDK**: 1.0.0+
+- **Python**: 3.10+
+- **MCP SDK**: 1.x (`mcp>=1.0.0,<2`)
 - **Descope SDK**: 1.0.0+
-- **FastMCP**: 2.0+
 
 The SDK can be imported alongside the official Descope Python SDK without conflicts.
 
