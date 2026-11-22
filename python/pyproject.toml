@@ -1,9 +1,6 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
-
-[tool.hatchling.build]
-packages = ["src/descope_mcp"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/descope_mcp"]
@@ -15,6 +12,7 @@ description = "MCP SDK for Descope authentication"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Descope", email = "support@descope.com"}
 ]
@@ -22,12 +20,13 @@ keywords = ["mcp", "descope", "authentication", "sdk"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
 ]
 
 dependencies = [
@@ -43,7 +42,6 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
-    "black>=23.0.0",
     "ruff>=0.1.0",
     "isort>=5.12.0",
     "mypy>=1.0.0",
@@ -51,12 +49,10 @@ dev = [
 
 [project.urls]
 Homepage = "https://descope.com"
-Repository = "https://github.com/descope/descope-ai"
-Issues = "https://github.com/descope/descope-ai/issues"
-
-[tool.black]
-line-length = 88
-target-version = ['py310']
+Documentation = "https://docs.descope.com/agentic-identity-hub/mcp-servers"
+Repository = "https://github.com/descope/descope-mcp"
+Issues = "https://github.com/descope/descope-mcp/issues"
+Changelog = "https://github.com/descope/descope-mcp/blob/main/CHANGELOG.md"
 
 [tool.isort]
 profile = "black"
