@@ -5,6 +5,10 @@ on:
     branches:
       - main
   pull_request:
+    # `edited` re-runs CI when a PR title changes (e.g. Renovate retitling), so the
+    # required `CI OK` check reflects the current title. Re-running a failed job
+    # would reuse the old event payload and the old title.
+    types: [opened, synchronize, reopened, edited]
   schedule:
     - cron: "0 8 * * *"
   workflow_dispatch:
