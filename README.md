@@ -1,5 +1,10 @@
 # MCP Descope SDK
 
+[![CI](https://github.com/descope/descope-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/descope/descope-mcp/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/descope-mcp)](https://pypi.org/project/descope-mcp/)
+[![Python versions](https://img.shields.io/pypi/pyversions/descope-mcp)](https://pypi.org/project/descope-mcp/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 Multi-language SDK for integrating Descope authentication with MCP (Model Context Protocol) servers.
 
 Descope serves as the **Authorization Server (AS)** for your MCP Servers, providing:
@@ -16,7 +21,9 @@ Descope serves as the **Authorization Server (AS)** for your MCP Servers, provid
 
 - [Python Documentation](./python/README.md)
 - [Python Examples](./python/examples/)
-- [Contributing](./CONTRIBUTING.md) (coming soon)
+- [Changelog](./CHANGELOG.md)
+- [Release process](./RELEASE.md)
+- [Security policy](./SECURITY.md)
 
 ## Repository Structure
 

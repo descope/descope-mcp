@@ -1,139 +1,102 @@
 # Release Process
 
-This document describes the release process for the MCP Descope SDK.
+Releases of the `descope-mcp` Python package are fully automated with
+[Release Please](https://github.com/googleapis/release-please) and published to
+PyPI with [trusted publishing](https://docs.pypi.org/trusted-publishers/). Nobody
+bumps versions, edits `CHANGELOG.md`, creates tags, or uploads to PyPI by hand.
 
-## Automated Release Process
+## How a release happens
 
-The SDK uses GitHub Actions workflows to automate releases and PyPI publishing.
+1. Merge pull requests into `main`. PRs are squash-merged and the **PR title**
+   becomes the commit message, so it must follow
+   [Conventional Commits](https://www.conventionalcommits.org/) (CI enforces this):
 
-### Triggering a Release
+   | PR title                                         | Release effect |
+   | ------------------------------------------------ | -------------- |
+   | `fix: ...` / `deps: ...`                          | patch          |
+   | `feat: ...`                                       | minor          |
+   | `feat!: ...` or a `BREAKING CHANGE:` footer       | major          |
+   | `docs:`, `chore:`, `ci:`, `build:`, `test:`, ... | no release     |
 
-There are two ways to trigger a release:
+2. The [Release Please workflow](.github/workflows/release-please.yml) opens or
+   updates a release PR titled `chore(main): release descope-mcp X.Y.Z`. It owns
+   every version-bearing file:
+   - `.release-please-manifest.json`
+   - `CHANGELOG.md`
+   - `python/pyproject.toml` (`project.version`)
+   - `python/uv.lock` (the `descope-mcp` package entry)
+   - `python/src/descope_mcp/__init__.py` (`__version__`, marked `x-release-please-version`)
 
-#### 1. Create a GitHub Release (Recommended)
+   See [`release-please-config.json`](release-please-config.json).
 
-1. Go to the [Releases page](https://github.com/your-org/mcp-descope/releases)
-2. Click "Draft a new release"
-3. Create a new tag (e.g., `v1.0.0`)
-4. Fill in the release title and description
-5. Click "Publish release"
+3. Review and merge the release PR. The workflow then:
+   1. creates the `descope-mcp-vX.Y.Z` tag and GitHub Release (via the Descope Release Bot app),
+   2. builds the sdist and wheel from the tag and checks their version matches the release,
+   3. records [build provenance attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations),
+   4. publishes to PyPI from the `pypi` environment using OIDC. PyPI also gets
+      [PEP 740](https://peps.python.org/pep-0740/) attestations.
 
-The workflow will automatically:
-- Extract the version from the tag
-- Update version in `pyproject.toml` and `__init__.py`
-- Build the package
-- Publish to PyPI
+### Choosing an exact version
 
-#### 2. Push a Version Tag
+Only when a specific version is required, put a `Release-As` footer in the merged
+commit body:
 
-```bash
-# Update version in pyproject.toml and __init__.py first
-git tag v1.0.0
-git push origin v1.0.0
+```text
+chore: release 1.0.0
+
+Release-As: 1.0.0
 ```
 
-The workflow will automatically:
-- Extract the version from the tag
-- Build the package
-- Publish to PyPI
+### Fixing release notes after merge
 
-#### 3. Manual Workflow Dispatch
+Edit the body of the merged PR and add:
 
-1. Go to Actions → Release workflow
-2. Click "Run workflow"
-3. Enter the version number (e.g., `1.0.0`)
-4. Click "Run workflow"
+```text
+BEGIN_COMMIT_OVERRIDE
+fix(python): corrected release-note entry
+END_COMMIT_OVERRIDE
+```
 
-This will:
-- Update version in files
-- Build the package
-- Publish to PyPI
-- Create a git tag
-- Create a GitHub release
+The next Release Please run regenerates the release PR.
 
-## Manual Release Process
+## Supply-chain controls
 
-If you need to release manually:
+- **No long-lived PyPI credentials.** The publish job exchanges a short-lived
+  GitHub OIDC token with PyPI. Build and publish run as separate jobs, and only
+  the publish job can mint the token.
+- **Pinned actions.** Every action is pinned to a full commit SHA. Renovate keeps the pins current.
+- **Least privilege.** Workflows default to `permissions: {}` and each job asks
+  only for what it uses. The release app token is limited to contents, issues
+  and pull requests.
+- **Workflow auditing.** [zizmor](https://docs.zizmor.sh/) and gitleaks run on every PR.
+- **Rulesets.** PR review, squash-only merges and linear history on `main` come from
+  the Descope organization ruleset "main protection"; don't duplicate them per repo.
+  This repo adds two rulesets, defined in [`.github/rulesets`](.github/rulesets) and
+  applied by a repo admin (`gh api -X POST repos/descope/descope-mcp/rulesets --input <file>`):
+  `main` requires the `CI OK` check, and release tags (`descope-mcp-v*`) can only be
+  created by the Descope Release Bot and cannot be moved or deleted.
 
-### Prerequisites
+## One-time PyPI setup
 
-1. Install build tools:
-   ```bash
-   pip install build twine
-   ```
+The trusted publisher on <https://pypi.org/manage/project/descope-mcp/settings/publishing/>
+must match:
 
-2. Set up PyPI credentials:
-   ```bash
-   # Create ~/.pypirc or use environment variables
-   export TWINE_USERNAME=__token__
-   export TWINE_PASSWORD=your-pypi-token
-   ```
+| Field       | Value                |
+| ----------- | -------------------- |
+| Owner       | `descope`            |
+| Repository  | `descope-mcp`        |
+| Workflow    | `release-please.yml` |
+| Environment | `pypi`               |
 
-### Steps
-
-1. **Update version** in `pyproject.toml` and `src/descope_mcp/__init__.py`
-
-2. **Build the package**:
-   ```bash
-   python -m build
-   ```
-
-3. **Check the package**:
-   ```bash
-   twine check dist/*
-   ```
-
-4. **Test the package** (optional):
-   ```bash
-   pip install dist/descope_mcp-*.whl
-   ```
-
-5. **Upload to PyPI**:
-   ```bash
-   twine upload dist/*
-   ```
-
-6. **Create git tag**:
-   ```bash
-   git tag -a v1.0.0 -m "Release v1.0.0"
-   git push origin v1.0.0
-   ```
-
-7. **Create GitHub release** (optional but recommended)
-
-## Version Numbering
-
-Follow [Semantic Versioning](https://semver.org/):
-- **MAJOR**: Incompatible API changes
-- **MINOR**: New functionality in a backward compatible manner
-- **PATCH**: Backward compatible bug fixes
-
-## PyPI Trusted Publishing
-
-The workflows use PyPI's trusted publishing feature. To set it up:
-
-1. Go to your PyPI project settings
-2. Navigate to "Manage" → "Publishing"
-3. Add a new trusted publisher
-4. Use the GitHub Actions workflow:
-   - Owner: `your-org`
-   - Repository: `mcp-descope`
-   - Workflow filename: `.github/workflows/publish.yml`
-   - Environment: (leave empty or use `release`)
+Once trusted publishing works, delete any PyPI API tokens for the project.
 
 ## Troubleshooting
 
-### Build fails
-- Check that `pyproject.toml` is valid
-- Ensure all dependencies are listed correctly
-- Check Python version compatibility
-
-### Upload fails
-- Verify PyPI credentials
-- Check if version already exists (PyPI doesn't allow overwriting)
-- Ensure you have maintainer/owner permissions
-
-### Version not updating
-- Check that version format matches exactly (e.g., `"1.0.0"` not `1.0.0`)
-- Verify sed command worked correctly
-- Check git tag format (should be `v1.0.0`)
+- **No release PR appeared:** check that a releasable commit (`feat`, `fix`, `deps`,
+  or breaking) landed on `main`, and that the Release Please workflow succeeded.
+  Also look for an old PR still labelled `autorelease: pending`.
+- **Publish failed with "file already exists":** the built version did not match
+  the release. The *Verify distributions* step is meant to catch this before upload.
+  Check the extra-files in `release-please-config.json`.
+- **`invalid-publisher` from PyPI:** the trusted publisher settings above do not
+  match the workflow file name or environment name.

@@ -1,6 +1,6 @@
 """MCP SDK for Descope authentication."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.0"  # x-release-please-version
 
 from .client import DescopeMCPClient
 from .connections import get_connection_token
