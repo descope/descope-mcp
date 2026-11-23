@@ -20,6 +20,7 @@ from .server import DescopeMCPServer
 from .session import (
     InsufficientScopeError,
     TokenValidationResult,
+    fetch_userinfo,
     require_scopes,
     validate_token,
     validate_token_and_get_user_id,
@@ -43,6 +44,7 @@ __all__ = [
     "fetch_user_token_by_scopes",
     "fetch_tenant_token",
     "fetch_tenant_token_by_scopes",
+    "fetch_userinfo",
     "DescopeMCP",
     "get_descope_client",
     "init_descope_mcp",
