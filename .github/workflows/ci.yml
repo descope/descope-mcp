@@ -150,9 +150,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: python
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -161,18 +158,20 @@ jobs:
         with:
           python-version: "3.13"
           enable-cache: false
+      # Mirrors the release workflow's build and verify steps exactly.
       - name: Build sdist and wheel
-        run: uv build --out-dir dist
-      - name: Check distribution metadata
-        run: uvx twine@7.0.0 check --strict dist/*
+        working-directory: python
+        run: uv build --out-dir ../dist
       - name: Check version files agree
+        working-directory: python
         run: |
           project_version="$(uv version --short)"
           module_version="$(sed -n 's/^__version__ = "\(.*\)".*/\1/p' src/descope_mcp/__init__.py)"
           echo "pyproject.toml: ${project_version}, __init__.py: ${module_version}"
           test "${project_version}" = "${module_version}"
-          test -f "dist/descope_mcp-${project_version}-py3-none-any.whl"
-          test -f "dist/descope_mcp-${project_version}.tar.gz"
+          echo "PROJECT_VERSION=${project_version}" >> "${GITHUB_ENV}"
+      - name: Verify distributions
+        run: .github/scripts/verify-dist.sh dist "${PROJECT_VERSION}"
 
   zizmor:
     name: Audit workflows (zizmor)
@@ -189,6 +188,9 @@ jobs:
 
   gitleaks:
     name: Scan for secrets (gitleaks)
+    # Fork PRs get no GITLEAKS_LICENSE, which gitleaks-action requires on org repos.
+    # Push protection still covers them; `CI OK` treats this skip as a pass.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read

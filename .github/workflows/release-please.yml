@@ -68,16 +68,14 @@ jobs:
       - name: Verify distributions match the release version
         env:
           VERSION: ${{ needs.release-please.outputs.version }}
-        run: |
-          test -f "dist/descope_mcp-${VERSION}-py3-none-any.whl"
-          test -f "dist/descope_mcp-${VERSION}.tar.gz"
-          test "$(find dist -type f | wc -l)" -eq 2
-          uvx twine@7.0.0 check --strict dist/*
+        run: .github/scripts/verify-dist.sh dist "${VERSION}"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: dist/*
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
 
       - name: Upload distributions
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -69,9 +69,12 @@ The next Release Please run regenerates the release PR.
   only for what it uses. The release app token is limited to contents, issues
   and pull requests.
 - **Workflow auditing.** [zizmor](https://docs.zizmor.sh/) and gitleaks run on every PR.
-- **Rulesets.** `main` requires PR review and the `CI OK` check. Release tags
-  (`descope-mcp-v*`) can only be created by the release app, and cannot be moved
-  or deleted. The definitions are in [`.github/rulesets`](.github/rulesets).
+- **Rulesets.** PR review, squash-only merges and linear history on `main` come from
+  the Descope organization ruleset "main protection"; don't duplicate them per repo.
+  This repo adds two rulesets, defined in [`.github/rulesets`](.github/rulesets) and
+  applied by a repo admin (`gh api -X POST repos/descope/descope-mcp/rulesets --input <file>`):
+  `main` requires the `CI OK` check, and release tags (`descope-mcp-v*`) can only be
+  created by the Descope Release Bot and cannot be moved or deleted.
 
 ## One-time PyPI setup
 
