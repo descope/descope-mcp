@@ -7,7 +7,7 @@ packages = ["src/descope_mcp"]
 
 [project]
 name = "descope-mcp"
-version = "0.1.0"
+version = "0.2.1"
 description = "MCP SDK for Descope authentication"
 readme = "README.md"
 requires-python = ">=3.10"
